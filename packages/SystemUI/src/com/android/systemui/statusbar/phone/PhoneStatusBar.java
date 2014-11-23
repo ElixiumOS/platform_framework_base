@@ -415,6 +415,7 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
 
     // omni additions
     private BatteryViewManager mBatteryViewManager;
+    private boolean mDoubleTabSleep;
 
     // for disabling the status bar
     int mDisabled1 = 0;
@@ -491,12 +492,44 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
         }
     };
 
-    private final ContentObserver mShowOperatorNameObserver = new ContentObserver(new Handler()) {
+    private class OmniSettingsObserver extends ContentObserver {
+        OmniSettingsObserver(Handler handler) {
+            super(handler);
+        }
+
+        void observe() {
+            mContext.getContentResolver().registerContentObserver(Settings.System.getUriFor(
+                    Settings.System.NAVIGATION_BAR_SHOW),
+                    false, this, UserHandle.USER_ALL);
+            mContext.getContentResolver().registerContentObserver(Settings.System.getUriFor(
+                    Settings.System.STATUS_BAR_BRIGHTNESS_CONTROL),
+                    false, this, UserHandle.USER_ALL);
+            mContext.getContentResolver().registerContentObserver(Settings.System.getUriFor(
+                    Settings.System.SCREEN_BRIGHTNESS_MODE),
+                    false, this, UserHandle.USER_ALL);
+            mContext.getContentResolver().registerContentObserver(Settings.System.getUriFor(
+                    Settings.System.DOUBLE_TAP_SLEEP_GESTURE),
+                    false, this, UserHandle.USER_ALL);
+
+            update();
+        }
+
         @Override
         public void onChange(boolean selfChange) {
             showOperatorName();
         }
-    };
+
+        public void update() {
+            mDoubleTabSleep = Settings.System.getIntForUser(
+                    mContext.getContentResolver(), Settings.System.DOUBLE_TAP_SLEEP_GESTURE, 0, mCurrentUserId) == 1;
+
+            if (mStatusBarWindow != null) {
+                mStatusBarWindow.setDoubleTabSleep(mDoubleTabSleep);
+            }
+        }
+    }
+
+    private OmniSettingsObserver mOmniSettingsObserver = new OmniSettingsObserver(mHandler);
 
     private int mInteractingWindows;
     private boolean mAutohideSuspended;
