@@ -79,4 +79,8 @@
   <java-symbol type="string" name="global_action_search" />
   <java-symbol type="string" name="global_action_voicesearch" />
 
+  <!-- Battery lights -->
+  <java-symbol type="bool" name="config_multiColorBatteryLed" />
+  <java-symbol type="bool" name="config_intrusiveBatteryLed" />
+
 </resources>
