@@ -32,6 +32,7 @@ import android.os.IBinder;
 import android.os.Message;
 import android.os.RemoteException;
 import android.os.ServiceManager;
+import android.provider.Settings;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
@@ -436,10 +437,9 @@ public class Toast {
                 }
 
                 ImageView appIcon = (ImageView) mView.findViewById(android.R.id.icon);
-                if (appIcon != null) {
-                    ActivityManager am =
-                            (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
-                    if (!am.isPackageInForeground(packageName)) {
+
+                if ((Settings.System.getInt(context.getContentResolver(), Settings.System.TOAST_ICON, 0) == 1)) {
+                    if (appIcon != null) {
                         PackageManager pm = context.getPackageManager();
                         Drawable icon = null;
                         try {
