@@ -4910,6 +4910,8 @@ public final class PowerManagerService extends SystemService
                     if (distance >= PROXIMITY_NEAR_THRESHOLD ||
                             distance >= mProximitySensor.getMaximumRange()) {
                         r.run();
+                    } else {
+                        Slog.w(TAG, "Not waking up. Proximity sensor is blocked.");
                     }
                 }
 
