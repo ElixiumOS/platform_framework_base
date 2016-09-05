@@ -2255,5 +2255,10 @@ message MetricsEvent {
 
     // Quick setting tiles
     QUICK_SETTINGS = 412;
+
+    // Immersive mode
+    QS_IMMERSIVE = 501;
+    QS_IMMERSIVE_DETAILS = 502;
+    QS_IMMERSIVE_TOGGLE = 503;
   }
 }
