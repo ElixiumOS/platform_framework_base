@@ -281,7 +281,7 @@ public abstract class DialogPreference extends Preference implements
      * Shows the dialog associated with this Preference. This is normally initiated
      * automatically on clicking on the preference. Call this method if you need to
      * show the dialog on some other event.
-     * 
+     *
      * @param state Optional instance state to restore on the dialog
      */
     protected void showDialog(Bundle state) {
