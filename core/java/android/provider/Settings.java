@@ -3637,6 +3637,25 @@ public final class Settings {
          */
 
         /**
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+         * @hide
+         */
+        public static final String BUTTON_BACK_KILL_TIMEOUT = "button_back_kill_timeout";
+
+        /**
+         * @hide
+         */
+        public static final String BUTTON_BACK_KILL_ENABLE = "button_back_kill_enable";
+
+        /**
+         * @hide
+         */
+        public static final String GLOBAL_ACTIONS_LIST = "global_actions_list";
+
+        /**
+>>>>>>> e5bf523... Add QS pulldown with one finger [1/2]
          *  Enable statusbar double tap gesture on to put device to sleep
          * @hide
          */
@@ -3660,6 +3679,12 @@ public final class Settings {
          * @hide
          */
         public static final String LOCKSCREEN_ROTATION = "lockscreen_rotation";
+
+        /**
+         * Whether to allow one finger quick settings expansion on the left or right side of the statusbar.
+         * @hide
+         */
+        public static final String STATUS_BAR_QUICK_QS_PULLDOWN = "status_bar_quick_qs_pulldown";
 
         /**
          * Settings to backup. This is here so that it's in the same place as the settings
