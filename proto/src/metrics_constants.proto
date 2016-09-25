@@ -2252,5 +2252,8 @@ message MetricsEvent {
 
     // DNA Costants
     DNA = 500;
+
+    // Quick setting tiles
+    QUICK_SETTINGS = 412;
   }
 }
