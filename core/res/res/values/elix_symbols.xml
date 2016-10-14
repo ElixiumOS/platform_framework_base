@@ -55,4 +55,9 @@
   <java-symbol type="string" name="reboot_progress" />
   <java-symbol type="string" name="global_action_reboot" />
 
+  <!-- Powermenu animations -->
+  <java-symbol type="style" name="GlobalActionsAnimation" />
+  <java-symbol type="style" name="GlobalActionsAnimationTop" />
+  <java-symbol type="style" name="GlobalActionsAnimationEnter" />
+
 </resources>
