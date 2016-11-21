@@ -2352,4 +2352,8 @@ public class NotificationPanelView extends PanelView implements
     public void setGroupManager(NotificationGroupManager groupManager) {
         mGroupManager = groupManager;
     }
+
+    public void updateSettings() {
+        mQsContainer.updateSettings();
+    }
 }

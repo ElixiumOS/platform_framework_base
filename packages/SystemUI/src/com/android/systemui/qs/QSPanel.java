@@ -48,9 +48,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 
 /** View that represents the quick settings tile panel. **/
-public class QSPanel extends LinearLayout implements Tunable, Callback {
-
-    public static final String QS_SHOW_BRIGHTNESS = "qs_show_brightness";
+public class QSPanel extends LinearLayout implements Callback {
 
     protected final Context mContext;
     protected final ArrayList<TileRecord> mRecords = new ArrayList<TileRecord>();
@@ -131,7 +129,6 @@ public class QSPanel extends LinearLayout implements Tunable, Callback {
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
-        TunerService.get(mContext).addTunable(this, QS_SHOW_BRIGHTNESS);
         if (mHost != null) {
             setTiles(mHost.getTiles());
         }
@@ -139,7 +136,6 @@ public class QSPanel extends LinearLayout implements Tunable, Callback {
 
     @Override
     protected void onDetachedFromWindow() {
-        TunerService.get(mContext).removeTunable(this);
         mHost.removeCallback(this);
         for (TileRecord record : mRecords) {
             record.tile.removeCallbacks();
@@ -150,14 +146,6 @@ public class QSPanel extends LinearLayout implements Tunable, Callback {
     @Override
     public void onTilesChanged() {
         setTiles(mHost.getTiles());
-    }
-
-    @Override
-    public void onTuningChanged(String key, String newValue) {
-        if (QS_SHOW_BRIGHTNESS.equals(key)) {
-            mBrightnessView.setVisibility(newValue == null || Integer.parseInt(newValue) != 0
-                    ? VISIBLE : GONE);
-        }
     }
 
     public void openDetails(String subPanel) {
