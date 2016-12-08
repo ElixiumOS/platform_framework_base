@@ -19,6 +19,10 @@
 -->
 <resources>
 
+    <!-- SOMC LockScreen -->
+    <item type="dimen" name="time_shadow_dy">1.0</item>
+    <item type="dimen" name="time_shadow_radius">3.0</item>
+
     <!-- Size of the generic status lines keyguard's status view  -->
     <dimen name="kg_status_line_font_size">14sp</dimen>
 
