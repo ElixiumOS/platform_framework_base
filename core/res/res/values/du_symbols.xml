@@ -16,6 +16,11 @@
 -->
 <resources>
 
+  <!-- IMS -->
+  <java-symbol type="string" name="config_optionalPackageVerifierName" />
+  <java-symbol type="integer" name="config_sms_authorization_timeout_ms" />
+  <java-symbol type="bool" name="config_sms_authorization_enabled" />
+
   <!-- Whether device supports an alt. ambient display -->
   <java-symbol type="bool" name="config_alt_ambient_display"/>
 
