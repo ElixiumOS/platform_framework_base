@@ -3637,9 +3637,6 @@ public final class Settings {
          */
 
         /**
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
          * @hide
          */
         public static final String BUTTON_BACK_KILL_TIMEOUT = "button_back_kill_timeout";
@@ -3655,7 +3652,6 @@ public final class Settings {
         public static final String GLOBAL_ACTIONS_LIST = "global_actions_list";
 
         /**
->>>>>>> e5bf523... Add QS pulldown with one finger [1/2]
          *  Enable statusbar double tap gesture on to put device to sleep
          * @hide
          */
@@ -6535,6 +6531,12 @@ public final class Settings {
          * @hide
          */
         public static final String SYSTEM_DESIGN_FLAGS = "system_design_flags";
+ 
+        /**
+         * Force authorize Substratum (or equivalent) frontend calling packages by Masquerade
+         * @hide
+         */
+        public static final String FORCE_AUTHORIZE_SUBSTRATUM_PACKAGES = "force_authorize_substratum_packages";
 
         /**
          * This are the settings to be backed up.
