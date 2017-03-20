@@ -1438,7 +1438,13 @@ public final class SystemServer {
                     mWebViewUpdateService.prepareWebViewInSystemServer();
                     Trace.traceEnd(Trace.TRACE_TAG_SYSTEM_SERVER);
                 }
+                Trace.traceBegin(Trace.TRACE_TAG_SYSTEM_SERVER, "StartSystemUI crash monitor");
 
+                try {
+                    startSystemUiMonitor(context);
+                } catch (Throwable e) {
+                    reportWtf("starting System UI crash monitor", e);
+                }
                 Trace.traceBegin(Trace.TRACE_TAG_SYSTEM_SERVER, "StartSystemUI");
                 try {
                     startSystemUi(context);
@@ -1556,6 +1562,14 @@ public final class SystemServer {
         intent.setComponent(new ComponentName("com.android.systemui",
                     "com.android.systemui.SystemUIService"));
         intent.addFlags(Intent.FLAG_DEBUG_TRIAGED_MISSING);
+        //Slog.d(TAG, "Starting service: " + intent);
+        context.startServiceAsUser(intent, UserHandle.SYSTEM);
+    }
+
+    static final void startSystemUiMonitor(Context context) {
+        Intent intent = new Intent();
+        intent.setComponent(new ComponentName("projekt.interfacer",
+                "projekt.interfacer.services.SystemUIMonitorService"));
         //Slog.d(TAG, "Starting service: " + intent);
         context.startServiceAsUser(intent, UserHandle.SYSTEM);
     }

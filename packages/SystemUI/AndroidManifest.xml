@@ -164,6 +164,9 @@
     <!-- shortcut manager -->
     <uses-permission android:name="android.permission.RESET_SHORTCUT_MANAGER_THROTTLING" />
 
+    <!-- let ThemeInterface know we crashed -->
+    <protected-broadcast android:name="com.android.systemui.SYSTEMUI_CRASHED" />
+
     <application
         android:name=".SystemUIApplication"
         android:persistent="true"

@@ -85,6 +85,7 @@ public class ServiceMonitor {
                     checkBound();
                     break;
                 case MSG_SERVICE_DISCONNECTED:
+                    broadcastDisconnect();
                     serviceDisconnected((ComponentName)msg.obj);
                     break;
             }
@@ -301,5 +302,9 @@ public class ServiceMonitor {
             Log.w(mTag, "Error checking package availability", e);
             return false;
         }
+    }
+
+    private void broadcastDisconnect() {
+        mContext.sendBroadcastAsUser(new Intent("com.android.systemui.SYSTEMUI_CRASHED"), UserHandle.ALL);
     }
 }
