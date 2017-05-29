@@ -108,4 +108,7 @@
          Used to decide if we show pulse settings -->
     <bool name="config_ledCanPulse">true</bool>
 
+    <!-- Internal default to navigation bar value -->
+    <bool name="config_defaultToNavigationBar">true</bool>
+
 </resources>
