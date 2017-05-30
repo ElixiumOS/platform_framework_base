@@ -91,9 +91,6 @@ public class BatteryViewManager {
                 R.layout.battery_percent_view, mContainerView, false);
         mBatteryStyleList.add(view);
 
-        view = (AbstractBatteryView) LayoutInflater.from(mContext).inflate(
-                R.layout.battery_droid_view, mContainerView, false);
-        mBatteryStyleList.add(view);
 
         mContext.getContentResolver().registerContentObserver(
                 Settings.System.getUriFor(Settings.System.STATUSBAR_BATTERY_STYLE), false,
