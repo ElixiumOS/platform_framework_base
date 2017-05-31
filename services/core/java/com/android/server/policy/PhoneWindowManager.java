@@ -805,6 +805,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
 
     private final List<DeviceKeyHandler> mDeviceKeyHandlers = new ArrayList<>();
 
+    int mUserRotationAngles = -1;
+
     // constants for rotation bits
     private static final int ROTATION_0_MODE = 1;
     private static final int ROTATION_90_MODE = 2;
@@ -963,6 +965,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                     UserHandle.USER_ALL);
             resolver.registerContentObserver(Settings.System.getUriFor(
                     Settings.System.ACCELEROMETER_ROTATION_ANGLES), false, this,
+                    UserHandle.USER_ALL);
             resolver.registerContentObserver(Settings.Secure.getUriFor(
                     Settings.Secure.SYSTEM_DESIGN_FLAGS), false, this,
                     UserHandle.USER_ALL);
