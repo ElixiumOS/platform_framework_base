@@ -20,6 +20,7 @@ import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.telephony.Rlog;
+import android.text.TextUtils;
 
 /**
  * Contains phone state and service related information.
@@ -229,7 +230,6 @@ public class ServiceState implements Parcelable {
 
     private int mRilVoiceRadioTechnology;
     private int mRilDataRadioTechnology;
-    private int mRilImsRadioTechnology = RIL_RADIO_TECHNOLOGY_UNKNOWN;
 
     private boolean mCssIndicator;
     private int mNetworkId;
@@ -242,6 +242,10 @@ public class ServiceState implements Parcelable {
     private boolean mIsDataRoamingFromRegistration;
 
     private boolean mIsUsingCarrierAggregation;
+
+    /* EARFCN stands for E-UTRA Absolute Radio Frequency Channel Number,
+     * Reference: 3GPP TS 36.104 5.4.3 */
+    private int mLteEarfcnRsrpBoost = 0;
 
     /**
      * get String description of roaming type
@@ -321,8 +325,8 @@ public class ServiceState implements Parcelable {
         mCdmaEriIconMode = s.mCdmaEriIconMode;
         mIsEmergencyOnly = s.mIsEmergencyOnly;
         mIsDataRoamingFromRegistration = s.mIsDataRoamingFromRegistration;
-        mRilImsRadioTechnology = s.mRilImsRadioTechnology;
         mIsUsingCarrierAggregation = s.mIsUsingCarrierAggregation;
+        mLteEarfcnRsrpBoost = s.mLteEarfcnRsrpBoost;
     }
 
     /**
@@ -352,7 +356,7 @@ public class ServiceState implements Parcelable {
         mIsEmergencyOnly = in.readInt() != 0;
         mIsDataRoamingFromRegistration = in.readInt() != 0;
         mIsUsingCarrierAggregation = in.readInt() != 0;
-        mRilImsRadioTechnology = in.readInt();
+        mLteEarfcnRsrpBoost = in.readInt();
     }
 
     public void writeToParcel(Parcel out, int flags) {
@@ -379,7 +383,7 @@ public class ServiceState implements Parcelable {
         out.writeInt(mIsEmergencyOnly ? 1 : 0);
         out.writeInt(mIsDataRoamingFromRegistration ? 1 : 0);
         out.writeInt(mIsUsingCarrierAggregation ? 1 : 0);
-        out.writeInt(mRilImsRadioTechnology);
+        out.writeInt(mLteEarfcnRsrpBoost);
     }
 
     public int describeContents() {
@@ -594,6 +598,24 @@ public class ServiceState implements Parcelable {
     }
 
     /**
+     * Get current registered operator name in long alphanumeric format if
+     * available or short otherwise.
+     *
+     * @see #getOperatorAlphaLong
+     * @see #getOperatorAlphaShort
+     *
+     * @return name of operator, null if unregistered or unknown
+     * @hide
+     */
+    public String getOperatorAlpha() {
+        if (TextUtils.isEmpty(mVoiceOperatorAlphaLong)) {
+            return mVoiceOperatorAlphaShort;
+        }
+
+        return mVoiceOperatorAlphaLong;
+    }
+
+    /**
      * Get current registered operator numeric id.
      *
      * In GSM/UMTS, numeric format is 3 digit country code plus 2 or 3 digit
@@ -690,8 +712,7 @@ public class ServiceState implements Parcelable {
                         s.mCdmaDefaultRoamingIndicator)
                 && mIsEmergencyOnly == s.mIsEmergencyOnly
                 && mIsDataRoamingFromRegistration == s.mIsDataRoamingFromRegistration
-                && mIsUsingCarrierAggregation == s.mIsUsingCarrierAggregation
-                && mRilImsRadioTechnology == s.mRilImsRadioTechnology);
+                && mIsUsingCarrierAggregation == s.mIsUsingCarrierAggregation);
     }
 
     /**
@@ -801,7 +822,7 @@ public class ServiceState implements Parcelable {
                 + " EmergOnly=" + mIsEmergencyOnly
                 + " IsDataRoamingFromRegistration=" + mIsDataRoamingFromRegistration
                 + " IsUsingCarrierAggregation=" + mIsUsingCarrierAggregation
-                + " mRilImsRadioTechnology=" + mRilImsRadioTechnology);
+                + " mLteEarfcnRsrpBoost=" + mLteEarfcnRsrpBoost);
     }
 
     private void setNullState(int state) {
@@ -829,7 +850,7 @@ public class ServiceState implements Parcelable {
         mIsEmergencyOnly = false;
         mIsDataRoamingFromRegistration = false;
         mIsUsingCarrierAggregation = false;
-        mRilImsRadioTechnology = RIL_RADIO_TECHNOLOGY_UNKNOWN;
+        mLteEarfcnRsrpBoost = 0;
     }
 
     public void setStateOutOfService() {
@@ -1004,6 +1025,7 @@ public class ServiceState implements Parcelable {
         mIsEmergencyOnly = m.getBoolean("emergencyOnly");
         mIsDataRoamingFromRegistration = m.getBoolean("isDataRoamingFromRegistration");
         mIsUsingCarrierAggregation = m.getBoolean("isUsingCarrierAggregation");
+        mLteEarfcnRsrpBoost = m.getInt("LteEarfcnRsrpBoost");
     }
 
     /**
@@ -1023,7 +1045,7 @@ public class ServiceState implements Parcelable {
         m.putString("data-operator-alpha-long", mDataOperatorAlphaLong);
         m.putString("data-operator-alpha-short", mDataOperatorAlphaShort);
         m.putString("data-operator-numeric", mDataOperatorNumeric);
-        m.putBoolean("manual", Boolean.valueOf(mIsManualNetworkSelection));
+        m.putBoolean("manual", mIsManualNetworkSelection);
         m.putInt("radioTechnology", mRilVoiceRadioTechnology);
         m.putInt("dataRadioTechnology", mRilDataRadioTechnology);
         m.putBoolean("cssIndicator", mCssIndicator);
@@ -1031,10 +1053,10 @@ public class ServiceState implements Parcelable {
         m.putInt("systemId", mSystemId);
         m.putInt("cdmaRoamingIndicator", mCdmaRoamingIndicator);
         m.putInt("cdmaDefaultRoamingIndicator", mCdmaDefaultRoamingIndicator);
-        m.putBoolean("emergencyOnly", Boolean.valueOf(mIsEmergencyOnly));
-        m.putBoolean("isDataRoamingFromRegistration", Boolean.valueOf(mIsDataRoamingFromRegistration));
-        m.putBoolean("isUsingCarrierAggregation", Boolean.valueOf(mIsUsingCarrierAggregation));
-        m.putInt("imsRadioTechnology", mRilImsRadioTechnology);
+        m.putBoolean("emergencyOnly", mIsEmergencyOnly);
+        m.putBoolean("isDataRoamingFromRegistration", mIsDataRoamingFromRegistration);
+        m.putBoolean("isUsingCarrierAggregation", mIsUsingCarrierAggregation);
+        m.putInt("LteEarfcnRsrpBoost", mLteEarfcnRsrpBoost);
     }
 
     /** @hide */
@@ -1067,6 +1089,16 @@ public class ServiceState implements Parcelable {
     /** @hide */
     public void setIsUsingCarrierAggregation(boolean ca) {
         mIsUsingCarrierAggregation = ca;
+    }
+
+    /** @hide */
+    public int getLteEarfcnRsrpBoost() {
+        return mLteEarfcnRsrpBoost;
+    }
+
+    /** @hide */
+    public void setLteEarfcnRsrpBoost(int LteEarfcnRsrpBoost) {
+        mLteEarfcnRsrpBoost = LteEarfcnRsrpBoost;
     }
 
     /** @hide */
@@ -1268,19 +1300,8 @@ public class ServiceState implements Parcelable {
 
         // voice overrides
         newSs.mVoiceRegState = voiceSs.mVoiceRegState;
-        newSs.mRilVoiceRadioTechnology = voiceSs.mRilVoiceRadioTechnology;
         newSs.mIsEmergencyOnly = false; // only get here if voice is IN_SERVICE
 
         return newSs;
-    }
-
-    /** @hide */
-    public int getRilImsRadioTechnology() {
-        return mRilImsRadioTechnology;
-    }
-
-    /** @hide */
-    public void setRilImsRadioTechnology(int imsRadioTechnology) {
-        mRilImsRadioTechnology = imsRadioTechnology;
     }
 }

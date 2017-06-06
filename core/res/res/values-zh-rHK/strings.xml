@@ -89,14 +89,22 @@
     <string name="CLIRDefaultOffNextCallOff" msgid="2567998633124408552">"預設顯示來電號碼，下一通電話也繼續顯示。"</string>
     <string name="serviceNotProvisioned" msgid="8614830180508686666">"未提供此服務。"</string>
     <string name="CLIRPermanent" msgid="3377371145926835671">"您無法更改來電顯示設定。"</string>
-    <string name="RestrictedOnData" msgid="8653794784690065540">"已封鎖數據傳輸服務。"</string>
-    <string name="RestrictedOnEmergency" msgid="6581163779072833665">"已封鎖緊急服務。"</string>
-    <string name="RestrictedOnNormal" msgid="4953867011389750673">"已封鎖語音服務。"</string>
-    <string name="RestrictedOnAllVoice" msgid="3396963652108151260">"已封鎖所有語音服務。"</string>
-    <string name="RestrictedOnSms" msgid="8314352327461638897">"已封鎖 SMS 服務。"</string>
-    <string name="RestrictedOnVoiceData" msgid="996636487106171320">"已封鎖語音/數據服務。"</string>
-    <string name="RestrictedOnVoiceSms" msgid="1888588152792023873">"已封鎖語音/SMS 服務。"</string>
-    <string name="RestrictedOnAll" msgid="5643028264466092821">"已封鎖所有語音/數據傳輸/SMS 服務。"</string>
+    <!-- no translation found for RestrictedOnDataTitle (1322504692764166532) -->
+    <skip />
+    <!-- no translation found for RestrictedOnEmergencyTitle (1236071219598685236) -->
+    <skip />
+    <!-- no translation found for RestrictedOnNormalTitle (3179574012752700984) -->
+    <skip />
+    <!-- no translation found for RestrictedOnAllVoiceTitle (158800171499150681) -->
+    <skip />
+    <!-- no translation found for RestrictedOnDataContent (8997474569390996587) -->
+    <skip />
+    <!-- no translation found for RestrictedOnEmergencyContent (4573217945494650061) -->
+    <skip />
+    <!-- no translation found for RestrictedOnNormalContent (1579434198284512182) -->
+    <skip />
+    <!-- no translation found for RestrictedOnAllVoiceContent (5243580774142557047) -->
+    <skip />
     <string name="NetworkPreferenceSwitchTitle" msgid="4008877505368566980">"無法連接網絡"</string>
     <string name="NetworkPreferenceSwitchSummary" msgid="7335915397439759249">"如要改善接收品質，請嘗試前往「設定」&gt;「流動網絡」&gt;「偏好網絡類型」以變更所選類型。"</string>
     <string name="peerTtyModeFull" msgid="6165351790010341421">"對方曾要求 TTY 模式 (FULL)"</string>
@@ -382,6 +390,8 @@
     <string name="permdesc_accessImsCallService" msgid="8992884015198298775">"允許應用程式自行使用 IMS 服務撥打電話。"</string>
     <string name="permlab_readPhoneState" msgid="9178228524507610486">"讀取手機狀態和識別碼"</string>
     <string name="permdesc_readPhoneState" msgid="1639212771826125528">"允許應用程式使用裝置的電話功能。這項權限允許應用程式確定手機號碼和裝置編號、是否正在通話中，以及所撥打的對方號碼。"</string>
+    <string name="permlab_manageOwnCalls" msgid="1503034913274622244">"透過系統轉接來電"</string>
+    <string name="permdesc_manageOwnCalls" msgid="6552974537554717418">"允許應用程式透過系統轉接來電，以改善通話體驗。"</string>
     <string name="permlab_wakeLock" product="tablet" msgid="1531731435011495015">"防止平板電腦進入休眠狀態"</string>
     <string name="permlab_wakeLock" product="tv" msgid="2601193288949154131">"阻止電視進入休眠狀態"</string>
     <string name="permlab_wakeLock" product="default" msgid="573480187941496130">"防止手機進入休眠狀態"</string>
@@ -1068,14 +1078,6 @@
     <string name="ringtone_silent" msgid="7937634392408977062">"無"</string>
     <string name="ringtone_picker_title" msgid="3515143939175119094">"鈴聲"</string>
     <string name="ringtone_unknown" msgid="5477919988701784788">"不明鈴聲"</string>
-    <plurals name="wifi_available" formatted="false" msgid="7900333017752027322">
-      <item quantity="other">有可用的 Wi-Fi 網絡</item>
-      <item quantity="one">有可用的 Wi-Fi 網絡</item>
-    </plurals>
-    <plurals name="wifi_available_detailed" formatted="false" msgid="1140699367193975606">
-      <item quantity="other">有可用的公開 Wi-Fi 網絡</item>
-      <item quantity="one">有可用的公開 Wi-Fi 網絡</item>
-    </plurals>
     <string name="wifi_available_sign_in" msgid="9157196203958866662">"登入 Wi-Fi 網絡"</string>
     <string name="network_available_sign_in" msgid="1848877297365446605">"登入網絡"</string>
     <!-- no translation found for network_available_sign_in_detailed (8000081941447976118) -->
@@ -1646,7 +1648,6 @@
       <item quantity="other">已選取 <xliff:g id="COUNT_1">%1$d</xliff:g> 個項目</item>
       <item quantity="one">已選取 <xliff:g id="COUNT_0">%1$d</xliff:g> 個項目</item>
     </plurals>
-
     <string name="importance_from_user" msgid="7318955817386549931">"您可以設定這些通知的重要性。"</string>
     <string name="importance_from_person" msgid="9160133597262938296">"列為重要的原因：涉及的人。"</string>
     <string name="user_creation_account_exists" msgid="1942606193570143289">"要允許 <xliff:g id="APP">%1$s</xliff:g> 使用 <xliff:g id="ACCOUNT">%2$s</xliff:g> 建立新使用者嗎？"</string>
@@ -1685,10 +1686,18 @@
     <string name="audit_safemode_notification" msgid="6416076898350685856">"將此裝置回復至原廠設定後，使用將不受限制"</string>
     <string name="audit_safemode_notification_details" msgid="1860601176690176413">"輕觸以瞭解詳情。"</string>
     <string name="suspended_widget_accessibility" msgid="6712143096475264190">"「<xliff:g id="LABEL">%1$s</xliff:g>」已停用"</string>
-    <string name="global_action_reboot">"重新啟動"</string>
-    <!-- Carrier Name -->
-    <string name="China_Mobile">中國移動</string>
-    <string name="China_Unicom">中國聯通</string>
-    <string name="China_Telecom">中國電信</string>
     <string name="conference_call" msgid="3751093130790472426">"會議通話"</string>
+    <string name="etws_primary_default_message_earthquake" msgid="5541962250262769193">"請保持冷靜，並尋找附近的避難所。"</string>
+    <string name="etws_primary_default_message_tsunami" msgid="1887685943498368548">"請立即從沿海和河岸地區撤離，前往高地等較安全的地點。"</string>
+    <string name="etws_primary_default_message_earthquake_and_tsunami" msgid="998797956848445862">"請保持冷靜，並尋找附近的避難所。"</string>
+    <string name="etws_primary_default_message_test" msgid="2709597093560037455">"緊急訊息測試"</string>
+    <string name="etws_primary_default_message_others" msgid="6293148756130398971"></string>
+    <!-- no translation found for mmcc_authentication_reject (7729819349669603406) -->
+    <skip />
+    <!-- no translation found for mmcc_imsi_unknown_in_hlr (6321202257374418726) -->
+    <skip />
+    <!-- no translation found for mmcc_illegal_ms (2769452751852211112) -->
+    <skip />
+    <!-- no translation found for mmcc_illegal_me (4438696681169345015) -->
+    <skip />
 </resources>

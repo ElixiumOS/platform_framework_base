@@ -45,13 +45,11 @@ import static com.android.server.NetworkManagementService.NetdResponseCode.Tethe
 import static com.android.server.NetworkManagementService.NetdResponseCode.TetheringStatsListResult;
 import static com.android.server.NetworkManagementService.NetdResponseCode.TtyListResult;
 import static com.android.server.NetworkManagementSocketTagger.PROP_QTAGUID_ENABLED;
+
 import android.annotation.NonNull;
 import android.app.ActivityManagerNative;
-import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
 import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.net.ConnectivityManager;
 import android.net.INetd;
 import android.net.INetworkManagementEventObserver;
@@ -93,13 +91,10 @@ import android.util.SparseIntArray;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.app.IBatteryStats;
 import com.android.internal.net.NetworkStatsFactory;
-import com.android.internal.R;
 import com.android.internal.util.HexDump;
 import com.android.internal.util.Preconditions;
 import com.android.server.NativeDaemonConnector.Command;
 import com.android.server.NativeDaemonConnector.SensitiveArg;
-import com.android.server.NetPluginDelegate;
-import com.android.server.net.LockdownVpnTracker;
 import com.google.android.collect.Maps;
 
 import java.io.BufferedReader;
@@ -154,7 +149,7 @@ public class NetworkManagementService extends INetworkManagementService.Stub
      */
     public static final String PERMISSION_SYSTEM = "SYSTEM";
 
-    class NetdResponseCode {
+    static class NetdResponseCode {
         /* Keep in sync with system/netd/server/ResponseCode.h */
         public static final int InterfaceListResult       = 110;
         public static final int TetherInterfaceListResult = 111;
@@ -180,7 +175,6 @@ public class NetworkManagementService extends INetworkManagementService.Stub
         public static final int InterfaceDnsServerInfo    = 615;
         public static final int RouteChange               = 616;
         public static final int StrictCleartext           = 617;
-        public static final int InterfaceMessage          = 618;
     }
 
     /* Defaults for resolver parameters. */
@@ -222,11 +216,11 @@ public class NetworkManagementService extends INetworkManagementService.Stub
     private CountDownLatch mConnectedSignal = new CountDownLatch(1);
 
     private final RemoteCallbackList<INetworkManagementEventObserver> mObservers =
-            new RemoteCallbackList<INetworkManagementEventObserver>();
+            new RemoteCallbackList<>();
 
     private final NetworkStatsFactory mStatsFactory = new NetworkStatsFactory();
 
-    private Object mQuotaLock = new Object();
+    private final Object mQuotaLock = new Object();
 
     /** Set of interfaces with active quotas. */
     @GuardedBy("mQuotaLock")
@@ -271,7 +265,7 @@ public class NetworkManagementService extends INetworkManagementService.Stub
     @GuardedBy("mQuotaLock")
     private boolean mDataSaverMode;
 
-    private Object mIdleTimerLock = new Object();
+    private final Object mIdleTimerLock = new Object();
     /** Set of interfaces with active idle timers. */
     private static class IdleTimerParams {
         public final int timeout;
@@ -295,7 +289,7 @@ public class NetworkManagementService extends INetworkManagementService.Stub
     private int mLastPowerStateFromWifi = DataConnectionRealTimeInfo.DC_POWER_STATE_LOW;
 
     private final RemoteCallbackList<INetworkActivityListener> mNetworkActivityListeners =
-            new RemoteCallbackList<INetworkActivityListener>();
+            new RemoteCallbackList<>();
     private boolean mNetworkActive;
 
     /**
@@ -354,13 +348,6 @@ public class NetworkManagementService extends INetworkManagementService.Stub
         } else {
             prepareNativeDaemon();
         }
-        //Registering the receiver for Zerobalance blocking/unblocking
-        if (mContext.getResources().getBoolean(R.bool.config_zero_balance_operator)) {
-            final IntentFilter restrictFilter = new IntentFilter();
-            restrictFilter.addAction("org.codeaurora.restrictData");
-            mContext.registerReceiver(mZeroBalanceReceiver, restrictFilter);
-        }
-        if (DBG) Slog.d(TAG, "ZeroBalance registering receiver");
     }
 
     private IBatteryStats getBatteryStats() {
@@ -386,21 +373,30 @@ public class NetworkManagementService extends INetworkManagementService.Stub
         mObservers.unregister(observer);
     }
 
-    /**
-     * Notify our observers of an interface status change
-     */
-    private void notifyInterfaceStatusChanged(String iface, boolean up) {
+    @FunctionalInterface
+    private interface NetworkManagementEventCallback {
+        public void sendCallback(INetworkManagementEventObserver o) throws RemoteException;
+    }
+
+    private void invokeForAllObservers(NetworkManagementEventCallback eventCallback) {
         final int length = mObservers.beginBroadcast();
         try {
             for (int i = 0; i < length; i++) {
                 try {
-                    mObservers.getBroadcastItem(i).interfaceStatusChanged(iface, up);
+                    eventCallback.sendCallback(mObservers.getBroadcastItem(i));
                 } catch (RemoteException | RuntimeException e) {
                 }
             }
         } finally {
             mObservers.finishBroadcast();
         }
+    }
+
+    /**
+     * Notify our observers of an interface status change
+     */
+    private void notifyInterfaceStatusChanged(String iface, boolean up) {
+        invokeForAllObservers(o -> o.interfaceStatusChanged(iface, up));
     }
 
     /**
@@ -408,34 +404,14 @@ public class NetworkManagementService extends INetworkManagementService.Stub
      * (typically, an Ethernet cable has been plugged-in or unplugged).
      */
     private void notifyInterfaceLinkStateChanged(String iface, boolean up) {
-        final int length = mObservers.beginBroadcast();
-        try {
-            for (int i = 0; i < length; i++) {
-                try {
-                    mObservers.getBroadcastItem(i).interfaceLinkStateChanged(iface, up);
-                } catch (RemoteException | RuntimeException e) {
-                }
-            }
-        } finally {
-            mObservers.finishBroadcast();
-        }
+        invokeForAllObservers(o -> o.interfaceLinkStateChanged(iface, up));
     }
 
     /**
      * Notify our observers of an interface addition.
      */
     private void notifyInterfaceAdded(String iface) {
-        final int length = mObservers.beginBroadcast();
-        try {
-            for (int i = 0; i < length; i++) {
-                try {
-                    mObservers.getBroadcastItem(i).interfaceAdded(iface);
-                } catch (RemoteException | RuntimeException e) {
-                }
-            }
-        } finally {
-            mObservers.finishBroadcast();
-        }
+        invokeForAllObservers(o -> o.interfaceAdded(iface));
     }
 
     /**
@@ -447,34 +423,14 @@ public class NetworkManagementService extends INetworkManagementService.Stub
         mActiveAlerts.remove(iface);
         mActiveQuotas.remove(iface);
 
-        final int length = mObservers.beginBroadcast();
-        try {
-            for (int i = 0; i < length; i++) {
-                try {
-                    mObservers.getBroadcastItem(i).interfaceRemoved(iface);
-                } catch (RemoteException | RuntimeException e) {
-                }
-            }
-        } finally {
-            mObservers.finishBroadcast();
-        }
+        invokeForAllObservers(o -> o.interfaceRemoved(iface));
     }
 
     /**
      * Notify our observers of a limit reached.
      */
     private void notifyLimitReached(String limitName, String iface) {
-        final int length = mObservers.beginBroadcast();
-        try {
-            for (int i = 0; i < length; i++) {
-                try {
-                    mObservers.getBroadcastItem(i).limitReached(limitName, iface);
-                } catch (RemoteException | RuntimeException e) {
-                }
-            }
-        } finally {
-            mObservers.finishBroadcast();
-        }
+        invokeForAllObservers(o -> o.limitReached(limitName, iface));
     }
 
     /**
@@ -521,18 +477,9 @@ public class NetworkManagementService extends INetworkManagementService.Stub
             // on the mobile network, that is not coming from the radio itself, and we
             // have previously seen change reports from the radio.  In that case only
             // the radio is the authority for the current state.
-            final int length = mObservers.beginBroadcast();
-            try {
-                for (int i = 0; i < length; i++) {
-                    try {
-                        mObservers.getBroadcastItem(i).interfaceClassDataActivityChanged(
-                                Integer.toString(type), isActive, tsNanos);
-                    } catch (RemoteException | RuntimeException e) {
-                    }
-                }
-            } finally {
-                mObservers.finishBroadcast();
-            }
+            final boolean active = isActive;
+            invokeForAllObservers(o -> o.interfaceClassDataActivityChanged(
+                    Integer.toString(type), active, tsNanos));
         }
 
         boolean report = false;
@@ -583,21 +530,6 @@ public class NetworkManagementService extends INetworkManagementService.Stub
         if (!nativeServiceAvailable) {
             Slog.wtf(TAG, "Can't connect to NativeNetdService " + NETD_SERVICE_NAME);
         }
-    }
-
-    /**
-     * Notify our observers of a change in the data activity state of the interface
-     */
-    private void notifyInterfaceMessage(String message) {
-        final int length = mObservers.beginBroadcast();
-        for (int i = 0; i < length; i++) {
-            try {
-                mObservers.getBroadcastItem(i).interfaceMessageRecevied(message);
-            } catch (RemoteException e) {
-            } catch (RuntimeException e) {
-            }
-        }
-        mObservers.finishBroadcast();
     }
 
     /**
@@ -695,7 +627,7 @@ public class NetworkManagementService extends INetworkManagementService.Stub
                 }
             }
 
-            setFirewallEnabled(mFirewallEnabled || LockdownVpnTracker.isEnabled());
+            setFirewallEnabled(mFirewallEnabled);
 
             syncFirewallChainLocked(FIREWALL_CHAIN_NONE, mUidFirewallRules, "");
             syncFirewallChainLocked(FIREWALL_CHAIN_STANDBY, mUidFirewallStandbyRules, "standby ");
@@ -719,72 +651,31 @@ public class NetworkManagementService extends INetworkManagementService.Stub
      * Notify our observers of a new or updated interface address.
      */
     private void notifyAddressUpdated(String iface, LinkAddress address) {
-        final int length = mObservers.beginBroadcast();
-        try {
-            for (int i = 0; i < length; i++) {
-                try {
-                    mObservers.getBroadcastItem(i).addressUpdated(iface, address);
-                } catch (RemoteException | RuntimeException e) {
-                }
-            }
-        } finally {
-            mObservers.finishBroadcast();
-        }
+        invokeForAllObservers(o -> o.addressUpdated(iface, address));
     }
 
     /**
      * Notify our observers of a deleted interface address.
      */
     private void notifyAddressRemoved(String iface, LinkAddress address) {
-        final int length = mObservers.beginBroadcast();
-        try {
-            for (int i = 0; i < length; i++) {
-                try {
-                    mObservers.getBroadcastItem(i).addressRemoved(iface, address);
-                } catch (RemoteException | RuntimeException e) {
-                }
-            }
-        } finally {
-            mObservers.finishBroadcast();
-        }
+        invokeForAllObservers(o -> o.addressRemoved(iface, address));
     }
 
     /**
      * Notify our observers of DNS server information received.
      */
     private void notifyInterfaceDnsServerInfo(String iface, long lifetime, String[] addresses) {
-        final int length = mObservers.beginBroadcast();
-        try {
-            for (int i = 0; i < length; i++) {
-                try {
-                    mObservers.getBroadcastItem(i).interfaceDnsServerInfo(iface, lifetime,
-                        addresses);
-                } catch (RemoteException | RuntimeException e) {
-                }
-            }
-        } finally {
-            mObservers.finishBroadcast();
-        }
+        invokeForAllObservers(o -> o.interfaceDnsServerInfo(iface, lifetime, addresses));
     }
 
     /**
      * Notify our observers of a route change.
      */
     private void notifyRouteChange(String action, RouteInfo route) {
-        final int length = mObservers.beginBroadcast();
-        try {
-            for (int i = 0; i < length; i++) {
-                try {
-                    if (action.equals("updated")) {
-                        mObservers.getBroadcastItem(i).routeUpdated(route);
-                    } else {
-                        mObservers.getBroadcastItem(i).routeRemoved(route);
-                    }
-                } catch (RemoteException | RuntimeException e) {
-                }
-            }
-        } finally {
-            mObservers.finishBroadcast();
+        if (action.equals("updated")) {
+            invokeForAllObservers(o -> o.routeUpdated(route));
+        } else {
+            invokeForAllObservers(o -> o.routeRemoved(route));
         }
     }
 
@@ -863,22 +754,6 @@ public class NetworkManagementService extends INetworkManagementService.Stub
                         return true;
                     }
                     throw new IllegalStateException(errorMessage);
-                    // break;
-            case NetdResponseCode.InterfaceMessage:
-                    /*
-                     * An message arrived in network interface.
-                     * Format: "NNN IfaceMessage <3>AP-STA-CONNECTED 00:08:22:64:9d:84
-                     */
-                    if (cooked.length < 3 || !cooked[2].equals("IfaceMessage")) {
-                        throw new IllegalStateException(errorMessage);
-                    }
-                    Slog.d(TAG, "onEvent: "+ raw);
-                    if(cooked[5] != null) {
-                        notifyInterfaceMessage(cooked[4] + " " + cooked[5]);
-                    } else {
-                        notifyInterfaceMessage(cooked[4]);
-                    }
-                    return true;
                     // break;
             case NetdResponseCode.InterfaceClassActivity:
                     /*
@@ -1216,7 +1091,7 @@ public class NetworkManagementService extends INetworkManagementService.Stub
 
     private ArrayList<String> readRouteList(String filename) {
         FileInputStream fstream = null;
-        ArrayList<String> list = new ArrayList<String>();
+        ArrayList<String> list = new ArrayList<>();
 
         try {
             fstream = new FileInputStream(filename);
@@ -1289,26 +1164,6 @@ public class NetworkManagementService extends INetworkManagementService.Stub
     }
 
     @Override
-    public void createSoftApInterface(String wlanIface) {
-        mContext.enforceCallingOrSelfPermission(CONNECTIVITY_INTERNAL, TAG);
-        try {
-            mConnector.execute("softap", "create", wlanIface);
-        } catch (NativeDaemonConnectorException e) {
-            throw e.rethrowAsParcelableException();
-        }
-    }
-
-    @Override
-    public void deleteSoftApInterface(String wlanIface) {
-        mContext.enforceCallingOrSelfPermission(CONNECTIVITY_INTERNAL, TAG);
-        try {
-            mConnector.execute("softap", "remove", wlanIface);
-        } catch (NativeDaemonConnectorException e) {
-            throw e.rethrowAsParcelableException();
-        }
-    }
-
-    @Override
     public void startTethering(String[] dhcpRange) {
         mContext.enforceCallingOrSelfPermission(CONNECTIVITY_INTERNAL, TAG);
         // cmd is "tether start first_start first_stop second_start second_stop ..."
@@ -1360,7 +1215,7 @@ public class NetworkManagementService extends INetworkManagementService.Stub
         } catch (NativeDaemonConnectorException e) {
             throw e.rethrowAsParcelableException();
         }
-        List<RouteInfo> routes = new ArrayList<RouteInfo>();
+        List<RouteInfo> routes = new ArrayList<>();
         // The RouteInfo constructor truncates the LinkAddress to a network prefix, thus making it
         // suitable to use as a route destination.
         routes.add(new RouteInfo(getInterfaceConfig(iface).getLinkAddress(), null, iface));
@@ -1421,7 +1276,7 @@ public class NetworkManagementService extends INetworkManagementService.Stub
     }
 
     private List<InterfaceAddress> excludeLinkLocal(List<InterfaceAddress> addresses) {
-        ArrayList<InterfaceAddress> filtered = new ArrayList<InterfaceAddress>(addresses.size());
+        ArrayList<InterfaceAddress> filtered = new ArrayList<>(addresses.size());
         for (InterfaceAddress ia : addresses) {
             if (!ia.getAddress().isLinkLocalAddress())
                 filtered.add(ia);
@@ -1486,7 +1341,6 @@ public class NetworkManagementService extends INetworkManagementService.Stub
         } catch (SocketException e) {
             throw new IllegalStateException(e);
         }
-        NetPluginDelegate.natStarted(internalInterface,externalInterface);
     }
 
     @Override
@@ -1497,7 +1351,6 @@ public class NetworkManagementService extends INetworkManagementService.Stub
         } catch (SocketException e) {
             throw new IllegalStateException(e);
         }
-        NetPluginDelegate.natStopped(internalInterface,externalInterface);
     }
 
     @Override
@@ -1531,161 +1384,6 @@ public class NetworkManagementService extends INetworkManagementService.Stub
         mContext.enforceCallingOrSelfPermission(CONNECTIVITY_INTERNAL, TAG);
         try {
             mConnector.execute("pppd", "detach", tty);
-        } catch (NativeDaemonConnectorException e) {
-            throw e.rethrowAsParcelableException();
-        }
-    }
-
-    /**
-     * Private method used to call execute for a command given the provided arguments.
-     *
-     * This function checks the returned NativeDaemonEvent for the provided expected response code
-     * and message.  If either of these is not correct, an error is logged.
-     *
-     * @param String command The command to execute.
-     * @param Object[] args If needed, arguments for the command to execute.
-     * @param int expectedResponseCode The code expected to be returned in the corresponding event.
-     * @param String expectedResponseMessage The message expected in the returned event.
-     * @param String logMsg The message to log as an error (TAG will be applied).
-     */
-    private void executeOrLogWithMessage(String command, Object[] args,
-            int expectedResponseCode, String expectedResponseMessage, String logMsg)
-            throws NativeDaemonConnectorException {
-        NativeDaemonEvent event = mConnector.execute(command, args);
-        if (event.getCode() != expectedResponseCode
-                || !event.getMessage().equals(expectedResponseMessage)) {
-            Log.e(TAG, logMsg + ": event = " + event);
-        }
-    }
-
-    @Override
-    public void startAccessPoint(WifiConfiguration wifiConfig, String wlanIface) {
-        mContext.enforceCallingOrSelfPermission(CONNECTIVITY_INTERNAL, TAG);
-        Object[] args;
-        String logMsg = "startAccessPoint Error setting up softap";
-        try {
-            if (wifiConfig == null) {
-                args = new Object[] {"set", wlanIface};
-            } else {
-                String ssid_mode = "broadcast";
-                if (mContext.getResources().getBoolean(
-                        com.android.internal.R.bool
-                        .config_regional_hotspot_show_broadcast_ssid_checkbox)
-                        && wifiConfig.hiddenSSID) {
-                    ssid_mode = "hidden";
-                }
-                if (mContext.getResources().getBoolean(
-                        com.android.internal.R.bool
-                        .config_regional_hotspot_show_maximum_connection_enable)) {
-                    int clientNum = Settings.System.getInt(mContext.getContentResolver(),
-                            "WIFI_HOTSPOT_MAX_CLIENT_NUM", 8);
-                    if (DBG) Slog.d(TAG, "clientNum: " + clientNum);
-                    args = new Object[] {"set", wlanIface, wifiConfig.SSID,
-                            ssid_mode, Integer.toString(wifiConfig.apChannel),
-                            getSecurityType(wifiConfig),
-                            new SensitiveArg(wifiConfig.preSharedKey), clientNum};
-                } else {
-                    args = new Object[] {"set", wlanIface, wifiConfig.SSID,
-                            ssid_mode, Integer.toString(wifiConfig.apChannel),
-                            getSecurityType(wifiConfig), new SensitiveArg(wifiConfig.preSharedKey)};
-                }
-            }
-            executeOrLogWithMessage(SOFT_AP_COMMAND, args, NetdResponseCode.SoftapStatusResult,
-                    SOFT_AP_COMMAND_SUCCESS, logMsg);
-
-            logMsg = "startAccessPoint Error starting softap";
-            args = new Object[] {"startap", wlanIface};
-            executeOrLogWithMessage(SOFT_AP_COMMAND, args, NetdResponseCode.SoftapStatusResult,
-                    SOFT_AP_COMMAND_SUCCESS, logMsg);
-        } catch (NativeDaemonConnectorException e) {
-            throw e.rethrowAsParcelableException();
-        }
-    }
-
-    @Override
-    public void startWigigAccessPoint() {
-        mContext.enforceCallingOrSelfPermission(CONNECTIVITY_INTERNAL, TAG);
-        try {
-            mConnector.execute("softap", "qccmd", "set", "enable_wigig_softap=1");
-        } catch (NativeDaemonConnectorException e) {
-            throw e.rethrowAsParcelableException();
-        }
-    }
-
-    private static String getSecurityType(WifiConfiguration wifiConfig) {
-        switch (wifiConfig.getAuthType()) {
-            case KeyMgmt.WPA_PSK:
-                return "wpa-psk";
-            case KeyMgmt.WPA2_PSK:
-                return "wpa2-psk";
-            default:
-                return "open";
-        }
-    }
-
-    /* @param mode can be "AP", "STA" or "P2P" */
-    @Override
-    public void wifiFirmwareReload(String wlanIface, String mode) {
-        mContext.enforceCallingOrSelfPermission(CONNECTIVITY_INTERNAL, TAG);
-        Object[] args = {"fwreload", wlanIface, mode};
-        String logMsg = "wifiFirmwareReload Error reloading "
-                + wlanIface + " fw in " + mode + " mode";
-        try {
-            executeOrLogWithMessage(SOFT_AP_COMMAND, args, NetdResponseCode.SoftapStatusResult,
-                    SOFT_AP_COMMAND_SUCCESS, logMsg);
-        } catch (NativeDaemonConnectorException e) {
-            throw e.rethrowAsParcelableException();
-        }
-
-        // Ensure that before we return from this command, any asynchronous
-        // notifications generated before the command completed have been
-        // processed by all NetworkManagementEventObservers.
-        mConnector.waitForCallbacks();
-    }
-
-    @Override
-    public void stopAccessPoint(String wlanIface) {
-        mContext.enforceCallingOrSelfPermission(CONNECTIVITY_INTERNAL, TAG);
-        Object[] args = {"stopap"};
-        String logMsg = "stopAccessPoint Error stopping softap";
-
-        try {
-            executeOrLogWithMessage(SOFT_AP_COMMAND, args, NetdResponseCode.SoftapStatusResult,
-                    SOFT_AP_COMMAND_SUCCESS, logMsg);
-            wifiFirmwareReload(wlanIface, "STA");
-        } catch (NativeDaemonConnectorException e) {
-            throw e.rethrowAsParcelableException();
-        }
-    }
-
-    @Override
-    public void stopWigigAccessPoint() {
-        mContext.enforceCallingOrSelfPermission(CONNECTIVITY_INTERNAL, TAG);
-        try {
-            mConnector.execute("softap", "qccmd", "set", "enable_wigig_softap=0");
-        } catch (NativeDaemonConnectorException e) {
-            throw e.rethrowAsParcelableException();
-        }
-    }
-
-    @Override
-    public void setAccessPoint(WifiConfiguration wifiConfig, String wlanIface) {
-        mContext.enforceCallingOrSelfPermission(CONNECTIVITY_INTERNAL, TAG);
-        Object[] args;
-        String logMsg = "startAccessPoint Error setting up softap";
-        try {
-            if (wifiConfig == null) {
-                args = new Object[] {"set", wlanIface};
-            } else {
-                // TODO: understand why this is set to "6" instead of
-                // Integer.toString(wifiConfig.apChannel) as in startAccessPoint
-                // TODO: should startAccessPoint call this instead of repeating code?
-                args = new Object[] {"set", wlanIface, wifiConfig.SSID,
-                        "broadcast", "6",
-                        getSecurityType(wifiConfig), new SensitiveArg(wifiConfig.preSharedKey)};
-            }
-            executeOrLogWithMessage(SOFT_AP_COMMAND, args, NetdResponseCode.SoftapStatusResult,
-                    SOFT_AP_COMMAND_SUCCESS, logMsg);
         } catch (NativeDaemonConnectorException e) {
             throw e.rethrowAsParcelableException();
         }
@@ -2126,31 +1824,6 @@ public class NetworkManagementService extends INetworkManagementService.Stub
     }
 
     @Override
-    public void setDnsServersForNetwork(int netId, String[] servers, String domains) {
-        mContext.enforceCallingOrSelfPermission(CONNECTIVITY_INTERNAL, TAG);
-
-        Command cmd;
-        if (servers.length > 0) {
-            cmd = new Command("resolver", "setnetdns", netId,
-                    (domains == null ? "" : domains));
-            for (String s : servers) {
-                InetAddress a = NetworkUtils.numericToInetAddress(s);
-                if (a.isAnyLocalAddress() == false) {
-                    cmd.appendArg(a.getHostAddress());
-                }
-            }
-        } else {
-            cmd = new Command("resolver", "clearnetdns", netId);
-        }
-
-        try {
-            mConnector.execute(cmd);
-        } catch (NativeDaemonConnectorException e) {
-            throw e.rethrowAsParcelableException();
-        }
-    }
-
-    @Override
     public void addVpnUidRanges(int netId, UidRange[] ranges) {
         mContext.enforceCallingOrSelfPermission(CONNECTIVITY_INTERNAL, TAG);
         Object[] argv = new Object[3 + MAX_UID_RANGES_PER_COMMAND];
@@ -2218,30 +1891,6 @@ public class NetworkManagementService extends INetworkManagementService.Stub
         final String rule = allow ? "allow" : "deny";
         try {
             mConnector.execute("firewall", "set_interface_rule", iface, rule);
-        } catch (NativeDaemonConnectorException e) {
-            throw e.rethrowAsParcelableException();
-        }
-    }
-
-    @Override
-    public void setFirewallEgressSourceRule(String addr, boolean allow) {
-        enforceSystemUid();
-        Preconditions.checkState(mFirewallEnabled);
-        final String rule = allow ? "allow" : "deny";
-        try {
-            mConnector.execute("firewall", "set_egress_source_rule", addr, rule);
-        } catch (NativeDaemonConnectorException e) {
-            throw e.rethrowAsParcelableException();
-        }
-    }
-
-    @Override
-    public void setFirewallEgressDestRule(String addr, int port, boolean allow) {
-        enforceSystemUid();
-        Preconditions.checkState(mFirewallEnabled);
-        final String rule = allow ? "allow" : "deny";
-        try {
-            mConnector.execute("firewall", "set_egress_dest_rule", addr, port, rule);
         } catch (NativeDaemonConnectorException e) {
             throw e.rethrowAsParcelableException();
         }
@@ -2881,31 +2530,6 @@ public class NetworkManagementService extends INetworkManagementService.Stub
         modifyInterfaceInNetwork("remove", "local", iface);
     }
 
-    private BroadcastReceiver mZeroBalanceReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            boolean isBlockAllData = false;
-            if(intent != null
-                    && intent.getAction().equals("org.codeaurora.restrictData")) {
-                isBlockAllData = intent.getBooleanExtra("Restrict",false);
-                Log.wtf("ZeroBalance", "Intent value to block unblock data"+isBlockAllData);
-            }
-            mContext.enforceCallingOrSelfPermission(CONNECTIVITY_INTERNAL, TAG);
-
-            // silently discard when control disabled
-            // TODO: eventually migrate to be always enabled
-            if (!mBandwidthControlEnabled) return;
-            try {
-                Log.wtf("ZeroBalance", "before calling connector Intent"
-                        +"value to block unblock data"+isBlockAllData);
-                mConnector.execute("bandwidth",
-                        isBlockAllData ? "blockAllData" : "unblockAllData");
-            } catch (NativeDaemonConnectorException e) {
-                throw e.rethrowAsParcelableException();
-            }
-        }
-    };
-	
     @Override
     public int removeRoutesFromLocalNetwork(List<RouteInfo> routes) {
         int failures = 0;

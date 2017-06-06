@@ -26,8 +26,6 @@ import android.graphics.drawable.Animatable;
 import android.graphics.drawable.AnimatedVectorDrawable;
 import android.graphics.drawable.Drawable;
 import android.telephony.SubscriptionInfo;
-import android.telephony.SubscriptionManager;
-import android.telephony.TelephonyManager;
 import android.util.ArraySet;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -53,7 +51,7 @@ import java.util.List;
 // Intimately tied to the design of res/layout/signal_cluster_view.xml
 public class SignalClusterView
         extends LinearLayout
-        implements NetworkControllerImpl.SignalCallbackExtended,
+        implements NetworkControllerImpl.SignalCallback,
         SecurityController.SecurityControllerCallback, Tunable {
 
     static final String TAG = "SignalClusterView";
@@ -75,10 +73,10 @@ public class SignalClusterView
     private int mEthernetIconId = 0;
     private int mLastEthernetIconId = -1;
     private boolean mWifiVisible = false;
-    private boolean mImsOverWifi = false;
-    private boolean mMobileIms = false;
-    private int mWifiStrengthId = 0, mWifiActivityId = 0;
-    private int mLastWifiStrengthId = -1, mLastWifiActivityId = -1;
+    private int mWifiStrengthId = 0;
+    private int mLastWifiStrengthId = -1;
+    private int mWifiActivityId = 0;
+    private int mLastWifiActivityId = -1;
     private boolean mIsAirplaneMode = false;
     private int mAirplaneIconId = 0;
     private int mLastAirplaneIconId = -1;
@@ -89,13 +87,10 @@ public class SignalClusterView
     private int mIconTint = Color.WHITE;
     private float mDarkIntensity;
     private final Rect mTintArea = new Rect();
-    private int mNoSimsIcon;
 
     ViewGroup mEthernetGroup, mWifiGroup;
     View mNoSimsCombo;
-    ImageView mVpn, mEthernet, mWifi, mAirplane,
-                mNoSims, mEthernetDark, mWifiDark, mNoSimsDark, mImsOverWifiImageView,
-                mMobileImsImageView;
+    ImageView mVpn, mEthernet, mWifi, mAirplane, mNoSims, mEthernetDark, mWifiDark, mNoSimsDark;
     ImageView mWifiActivity;
     View mWifiAirplaneSpacer;
     View mWifiSignalSpacer;
@@ -113,7 +108,6 @@ public class SignalClusterView
     private boolean mBlockMobile;
     private boolean mBlockWifi;
     private boolean mBlockEthernet;
-    private TelephonyManager mTelephonyManager;
 
     public SignalClusterView(Context context) {
         this(context, null);
@@ -140,7 +134,6 @@ public class SignalClusterView
         TypedValue typedValue = new TypedValue();
         res.getValue(R.dimen.status_bar_icon_scale_factor, typedValue, true);
         mIconScaleFactor = typedValue.getFloat();
-        mTelephonyManager = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
     }
 
     @Override
@@ -194,8 +187,6 @@ public class SignalClusterView
         mAirplane       = (ImageView) findViewById(R.id.airplane);
         mNoSims         = (ImageView) findViewById(R.id.no_sims);
         mNoSimsDark     = (ImageView) findViewById(R.id.no_sims_dark);
-        mImsOverWifiImageView    = (ImageView) findViewById(R.id.ims_over_wifi);
-        mMobileImsImageView      = (ImageView) findViewById(R.id.ims_hd);
         mNoSimsCombo    =             findViewById(R.id.no_sims_combo);
         mWifiAirplaneSpacer =         findViewById(R.id.wifi_airplane_spacer);
         mWifiSignalSpacer =           findViewById(R.id.wifi_signal_spacer);
@@ -242,15 +233,6 @@ public class SignalClusterView
 
     @Override
     protected void onDetachedFromWindow() {
-        mVpn            = null;
-        mEthernetGroup  = null;
-        mEthernet       = null;
-        mWifiGroup      = null;
-        mWifi           = null;
-        mWifiActivity   = null;
-        mAirplane       = null;
-        mImsOverWifiImageView    = null;
-        mMobileImsImageView      = null;
         mMobileSignalGroup.removeAllViews();
         TunerService.get(mContext).removeTunable(this);
         mSC.removeCallback(this);
@@ -285,18 +267,19 @@ public class SignalClusterView
             boolean activityIn, boolean activityOut, String description) {
         mWifiVisible = statusIcon.visible && !mBlockWifi;
         mWifiStrengthId = statusIcon.icon;
-        mWifiActivityId = getWifiActivityId(activityIn, activityOut);
         mWifiDescription = statusIcon.contentDescription;
+        mWifiActivityId = activityIn && activityOut ? R.drawable.stat_sys_wifi_inout
+                : activityIn ? R.drawable.stat_sys_wifi_in
+                : activityOut ? R.drawable.stat_sys_wifi_out
+                : 0;
 
         apply();
     }
 
     @Override
     public void setMobileDataIndicators(IconState statusIcon, IconState qsIcon, int statusType,
-            int qsType, boolean activityIn, boolean activityOut, int dataActivityId,
-            int mobileActivityId, int stackedDataId, int stackedVoiceId,
-            String typeContentDescription, String description, boolean isWide, int subId,
-            boolean roaming) {
+            int qsType, boolean activityIn, boolean activityOut, String typeContentDescription,
+            String description, boolean isWide, int subId, boolean roaming) {
         PhoneState state = getState(subId);
         if (state == null) {
             return;
@@ -307,33 +290,13 @@ public class SignalClusterView
         state.mMobileDescription = statusIcon.contentDescription;
         state.mMobileTypeDescription = typeContentDescription;
         state.mIsMobileTypeIconWide = statusType != 0 && isWide;
-        state.mDataActivityId = dataActivityId;
-        state.mMobileActivityId = mobileActivityId;
-        state.mStackedDataId = stackedDataId;
-        state.mStackedVoiceId = stackedVoiceId;
         state.mRoaming = roaming;
+        state.mMobileActivityId = activityIn && activityOut ? R.drawable.stat_sys_signal_inout
+                : activityIn ? R.drawable.stat_sys_signal_in
+                : activityOut ? R.drawable.stat_sys_signal_out
+                : 0;
 
         apply();
-    }
-
-    @Override
-    public void setMobileDataIndicators(IconState statusIcon, IconState qsIcon, int statusType,
-            int qsType, boolean activityIn, boolean activityOut, int dataActivityId,
-            int mobileActivityId, int stackedDataId, int stackedVoiceId,
-            String typeContentDescription, String description, boolean isWide, int subId,
-            int dataNetworkTypeId, int embmsIconId, boolean isMobileIms, boolean isImsOverWifi,
-            boolean roaming) {
-        PhoneState state = getState(subId);
-        if (state == null) {
-            return;
-        }
-        state.mDataNetworkTypeId = dataNetworkTypeId;
-        state.mMobileEmbmsId = embmsIconId;
-        mImsOverWifi = isImsOverWifi;
-        mMobileIms = isMobileIms;
-        this.setMobileDataIndicators(statusIcon, qsIcon, statusType, qsType, activityIn,
-                activityOut, dataActivityId, mobileActivityId, stackedDataId,
-                stackedVoiceId, typeContentDescription, description, isWide, subId, roaming);
     }
 
     @Override
@@ -345,21 +308,9 @@ public class SignalClusterView
         apply();
     }
 
-    private boolean getImsOverWifiStatus(int subId) {
-        TelephonyManager tm =
-                (TelephonyManager) mContext.getSystemService(Context.TELEPHONY_SERVICE);
-        if (tm != null
-                && (tm.isVoWifiCallingAvailableForSubscriber(subId)
-                || tm.isVideoTelephonyWifiCallingAvailableForSubscriber(subId))) {
-            return true;
-        }
-        return false;
-    }
-
     @Override
     public void setNoSims(boolean show) {
         mNoSimsVisible = show && !mBlockMobile;
-        mMobileIms = !mNoSimsVisible && mMobileIms;
         apply();
     }
 
@@ -382,12 +333,9 @@ public class SignalClusterView
             mMobileSignalGroup.removeAllViews();
         }
         final int n = subs.size();
-        boolean imsOverWiFi = false;
         for (int i = 0; i < n; i++) {
             inflatePhoneState(subs.get(i).getSubscriptionId());
-            imsOverWiFi |= getImsOverWifiStatus(subs.get(i).getSubscriptionId());
         }
-        mImsOverWifi = imsOverWiFi;
         if (isAttachedToWindow()) {
             applyIconTint();
         }
@@ -414,43 +362,6 @@ public class SignalClusterView
         }
         Log.e(TAG, "Unexpected subscription " + subId);
         return null;
-    }
-
-
-    private int getWifiActivityId(boolean activityIn, boolean activityOut) {
-        if (!getContext().getResources().getBoolean(R.bool.config_showWifiActivity)) {
-            return 0;
-        }
-        int activityId = 0;
-        if (activityIn && activityOut) {
-            activityId = R.drawable.stat_sys_wifi_inout;
-        } else if (activityIn) {
-            activityId = R.drawable.stat_sys_wifi_in;
-        } else if (activityOut) {
-            activityId = R.drawable.stat_sys_wifi_out;
-        }
-        return activityId;
-    }
-
-    private int getNoSimIcon() {
-        int resId = 0;
-        final String[] noSimArray;
-        Resources res = getContext().getResources();
-
-        if (!res.getBoolean(R.bool.config_read_icons_from_xml)) return resId;
-
-        try {
-            noSimArray = res.getStringArray(R.array.multi_no_sim);
-        } catch (android.content.res.Resources.NotFoundException e) {
-            return resId;
-        }
-
-        if (noSimArray == null) return resId;
-
-        String resName = noSimArray[0];
-        resId = res.getIdentifier(resName, null, getContext().getPackageName());
-        if (DEBUG) Log.d(TAG, "getNoSimIcon resId = " + resId + " resName = " + resName);
-        return resId;
     }
 
     private PhoneState inflatePhoneState(int subId) {
@@ -506,8 +417,7 @@ public class SignalClusterView
             mWifiDark.setImageDrawable(null);
             mLastWifiStrengthId = -1;
         }
-
-        if (mWifiActivity != null) {
+        if (mWifiActivity !=  null) {
             mWifiActivity.setImageDrawable(null);
             mLastWifiActivityId = -1;
         }
@@ -526,6 +436,10 @@ public class SignalClusterView
             if (state.mMobileType != null) {
                 state.mMobileType.setImageDrawable(null);
                 state.mLastMobileTypeId = -1;
+            }
+            if (state.mMobileActivity != null) {
+                state.mMobileActivity.setImageDrawable(null);
+                state.mLastMobileActivityId = -1;
             }
         }
 
@@ -581,7 +495,9 @@ public class SignalClusterView
                 mLastWifiStrengthId = mWifiStrengthId;
             }
             if (mWifiActivityId != mLastWifiActivityId) {
-                mWifiActivity.setImageResource(mWifiActivityId);
+                if (mWifiActivityId != 0) {
+                    setIconForView(mWifiActivity, mWifiActivityId);
+                }
                 mLastWifiActivityId = mWifiActivityId;
             }
             mWifiGroup.setContentDescription(mWifiDescription);
@@ -591,9 +507,11 @@ public class SignalClusterView
         }
 
         if (DEBUG) Log.d(TAG,
-                String.format("wifi: %s sig=%d act=%d",
+                String.format("wifi: %s sig=%d",
                     (mWifiVisible ? "VISIBLE" : "GONE"),
-                    mWifiStrengthId, mWifiActivityId));
+                    mWifiStrengthId));
+
+        mWifiActivity.setVisibility(mWifiActivityId != 0 ? View.VISIBLE : View.GONE);
 
         boolean anyMobileVisible = false;
         int firstMobileTypeId = 0;
@@ -617,18 +535,6 @@ public class SignalClusterView
             mAirplane.setVisibility(View.GONE);
         }
 
-        if (mImsOverWifi){
-            mImsOverWifiImageView.setVisibility(View.VISIBLE);
-        } else {
-            mImsOverWifiImageView.setVisibility(View.GONE);
-        }
-
-        if (mMobileIms){
-            mMobileImsImageView.setVisibility(View.VISIBLE);
-        } else {
-            mMobileImsImageView.setVisibility(View.GONE);
-        }
-
         if (mIsAirplaneMode && mWifiVisible) {
             mWifiAirplaneSpacer.setVisibility(View.VISIBLE);
         } else {
@@ -641,13 +547,6 @@ public class SignalClusterView
             mWifiSignalSpacer.setVisibility(View.GONE);
         }
 
-        if (mNoSimsVisible && mNoSims != null && mNoSimsDark != null) {
-            if (mNoSimsIcon == 0) mNoSimsIcon = getNoSimIcon();
-            if (mNoSimsIcon != 0) {
-                mNoSims.setImageResource(mNoSimsIcon);
-                mNoSimsDark.setImageResource(mNoSimsIcon);
-            }
-        }
         mNoSimsCombo.setVisibility(mNoSimsVisible ? View.VISIBLE : View.GONE);
 
         boolean anythingVisible = mNoSimsVisible || mWifiVisible || mIsAirplaneMode
@@ -684,16 +583,14 @@ public class SignalClusterView
     private void applyIconTint() {
         setTint(mVpn, StatusBarIconController.getTint(mTintArea, mVpn, mIconTint));
         setTint(mAirplane, StatusBarIconController.getTint(mTintArea, mAirplane, mIconTint));
-        setTint(mImsOverWifiImageView, StatusBarIconController.getTint(
-            mTintArea, mImsOverWifiImageView, mIconTint));
-        setTint(mMobileImsImageView, StatusBarIconController.getTint(
-            mTintArea, mMobileImsImageView, mIconTint));
         applyDarkIntensity(
                 StatusBarIconController.getDarkIntensity(mTintArea, mNoSims, mDarkIntensity),
                 mNoSims, mNoSimsDark);
         applyDarkIntensity(
                 StatusBarIconController.getDarkIntensity(mTintArea, mWifi, mDarkIntensity),
                 mWifi, mWifiDark);
+        setTint(mWifiActivity,
+                StatusBarIconController.getTint(mTintArea, mWifiActivity, mIconTint));
         applyDarkIntensity(
                 StatusBarIconController.getDarkIntensity(mTintArea, mEthernet, mDarkIntensity),
                 mEthernet, mEthernetDark);
@@ -718,23 +615,17 @@ public class SignalClusterView
     private class PhoneState {
         private final int mSubId;
         private boolean mMobileVisible = false;
-        private int mMobileStrengthId = 0, mMobileTypeId = 0;
+        private int mMobileStrengthId = 0, mMobileTypeId = 0, mMobileActivityId = 0;
         private int mLastMobileStrengthId = -1;
         private int mLastMobileTypeId = -1;
+        private int mLastMobileActivityId = -1;
         private boolean mIsMobileTypeIconWide;
         private String mMobileDescription, mMobileTypeDescription;
 
         private ViewGroup mMobileGroup;
-        private ImageView mMobile, mMobileDark, mMobileType, mMobileRoaming, mDataNetworkType,
-                mMobileEmbms;
-
-        private int mDataActivityId = 0, mMobileActivityId = 0, mDataNetworkTypeId =0,
-                mMobileEmbmsId = 0;
-
-        private int mStackedDataId = 0, mStackedVoiceId = 0;
-        private ImageView mDataActivity, mMobileActivity, mStackedData, mStackedVoice;
-        private ViewGroup mMobileSingleGroup, mMobileStackedGroup;
+        private ImageView mMobile, mMobileDark, mMobileType, mMobileRoaming;
         public boolean mRoaming;
+        private ImageView mMobileActivity;
 
         public PhoneState(int subId, Context context) {
             ViewGroup root = (ViewGroup) LayoutInflater.from(context)
@@ -748,16 +639,8 @@ public class SignalClusterView
             mMobile         = (ImageView) root.findViewById(R.id.mobile_signal);
             mMobileDark     = (ImageView) root.findViewById(R.id.mobile_signal_dark);
             mMobileType     = (ImageView) root.findViewById(R.id.mobile_type);
-            mMobileActivity = (ImageView) root.findViewById(R.id.mobile_inout);
-            mDataNetworkType = (ImageView) root.findViewById(R.id.dataNetwork_type);
-            mMobileEmbms    = (ImageView) root.findViewById(R.id.embms);
-            mDataActivity   = (ImageView) root.findViewById(R.id.data_inout);
-            mStackedData    = (ImageView) root.findViewById(R.id.mobile_signal_data);
-            mStackedVoice   = (ImageView) root.findViewById(R.id.mobile_signal_voice);
-
-            mMobileSingleGroup = (ViewGroup) root.findViewById(R.id.mobile_signal_single);
-            mMobileStackedGroup = (ViewGroup) root.findViewById(R.id.mobile_signal_stacked);
             mMobileRoaming  = (ImageView) root.findViewById(R.id.mobile_roaming);
+            mMobileActivity = (ImageView) root.findViewById(R.id.mobile_inout);
         }
 
         public boolean apply(boolean isSecondaryIcon) {
@@ -773,40 +656,10 @@ public class SignalClusterView
                     mLastMobileTypeId = mMobileTypeId;
                 }
 
-                mDataActivity.setImageResource(mDataActivityId);
-                Drawable dataActivityDrawable = mDataActivity.getDrawable();
-                if (dataActivityDrawable instanceof Animatable) {
-                    Animatable ad = (Animatable) dataActivityDrawable;
-                    if (!ad.isRunning()) {
-                        ad.start();
-                    }
+                if (mLastMobileActivityId != mMobileActivityId) {
+                    mMobileActivity.setImageResource(mMobileActivityId);
+                    mLastMobileActivityId = mMobileActivityId;
                 }
-
-                mMobileActivity.setImageResource(mMobileActivityId);
-                Drawable mobileActivityDrawable = mMobileActivity.getDrawable();
-                if (mobileActivityDrawable instanceof Animatable) {
-                    Animatable ad = (Animatable) mobileActivityDrawable;
-                    if (!ad.isRunning()) {
-                        ad.start();
-                    }
-                }
-
-                mMobileEmbms.setImageResource(mMobileEmbmsId);
-
-                mDataNetworkType.setImageResource(mDataNetworkTypeId);
-
-                if (mStackedDataId != 0 && mStackedVoiceId != 0) {
-                    mStackedData.setImageResource(mStackedDataId);
-                    mStackedVoice.setImageResource(mStackedVoiceId);
-                    mMobileSingleGroup.setVisibility(View.GONE);
-                    mMobileStackedGroup.setVisibility(View.VISIBLE);
-                } else {
-                    mStackedData.setImageResource(0);
-                    mStackedVoice.setImageResource(0);
-                    mMobileSingleGroup.setVisibility(View.VISIBLE);
-                    mMobileStackedGroup.setVisibility(View.GONE);
-                }
-
                 mMobileGroup.setContentDescription(mMobileTypeDescription
                         + " " + mMobileDescription);
                 mMobileGroup.setVisibility(View.VISIBLE);
@@ -828,12 +681,8 @@ public class SignalClusterView
                         (mMobileVisible ? "VISIBLE" : "GONE"), mMobileStrengthId, mMobileTypeId));
 
             mMobileType.setVisibility(mMobileTypeId != 0 ? View.VISIBLE : View.GONE);
-            mDataActivity.setVisibility(mDataActivityId != 0 ? View.VISIBLE : View.GONE);
-            mMobileActivity.setVisibility(mMobileActivityId != 0 ? View.VISIBLE : View.GONE);
-            mDataNetworkType.setVisibility(mDataNetworkTypeId != 0 ? View.VISIBLE
-                    : View.GONE);
-            mMobileEmbms.setVisibility(mMobileEmbmsId != 0 ? View.VISIBLE : View.GONE);
             mMobileRoaming.setVisibility(mRoaming ? View.VISIBLE : View.GONE);
+            mMobileActivity.setVisibility(mMobileActivityId != 0 ? View.VISIBLE : View.GONE);
 
             return mMobileVisible;
         }
@@ -893,10 +742,10 @@ public class SignalClusterView
                     StatusBarIconController.getDarkIntensity(tintArea, mMobile, darkIntensity),
                     mMobile, mMobileDark);
             setTint(mMobileType, StatusBarIconController.getTint(tintArea, mMobileType, tint));
-            setTint(mDataNetworkType, StatusBarIconController.getTint(tintArea,
-                    mDataNetworkType, tint));
             setTint(mMobileRoaming, StatusBarIconController.getTint(tintArea, mMobileRoaming,
                     tint));
+            setTint(mMobileActivity,
+                    StatusBarIconController.getTint(tintArea, mMobileActivity, tint));
         }
     }
 }

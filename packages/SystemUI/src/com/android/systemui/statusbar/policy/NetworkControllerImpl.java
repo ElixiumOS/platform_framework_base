@@ -28,7 +28,9 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.PersistableBundle;
 import android.provider.Settings;
+import android.telephony.CarrierConfigManager;
 import android.telephony.ServiceState;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
@@ -37,8 +39,6 @@ import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.MathUtils;
-import android.view.View;
-import android.widget.TextView;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.telephony.PhoneConstants;
@@ -73,7 +73,6 @@ public class NetworkControllerImpl extends BroadcastReceiver
     private static final int EMERGENCY_FIRST_CONTROLLER = 100;
     private static final int EMERGENCY_VOICE_CONTROLLER = 200;
     private static final int EMERGENCY_NO_SUB = 300;
-    private static final String ACTION_EMBMS_STATUS = "com.qualcomm.intent.EMBMS_STATUS";
 
     private final Context mContext;
     private final TelephonyManager mPhone;
@@ -121,8 +120,6 @@ public class NetworkControllerImpl extends BroadcastReceiver
     // The current user ID.
     private int mCurrentUserId;
 
-    private TextView mNetWorkNameLabelView;
-
     private OnSubscriptionsChangedListener mSubscriptionListener;
 
     // Handler that all broadcasts are received on.
@@ -136,7 +133,6 @@ public class NetworkControllerImpl extends BroadcastReceiver
     @VisibleForTesting
     ServiceState mLastServiceState;
     private boolean mUserSetup;
-    private boolean mIsEmbmsActive;
 
     /**
      * Construct this controller object and register for updates.
@@ -224,12 +220,8 @@ public class NetworkControllerImpl extends BroadcastReceiver
         filter.addAction(TelephonyIntents.SPN_STRINGS_UPDATED_ACTION);
         filter.addAction(ConnectivityManager.CONNECTIVITY_ACTION);
         filter.addAction(ConnectivityManager.INET_CONDITION_ACTION);
-        filter.addAction(Intent.ACTION_LOCALE_CHANGED);
         filter.addAction(Intent.ACTION_AIRPLANE_MODE_CHANGED);
-        //TODO:Replace this check when regional specific config is added
-        if (MobileSignalController.isCarrierOneSupported()) {
-            filter.addAction(ACTION_EMBMS_STATUS);
-        }
+        filter.addAction(CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED);
         mContext.registerReceiver(this, filter, null, mReceiverHandler);
         mListening = true;
 
@@ -400,10 +392,6 @@ public class NetworkControllerImpl extends BroadcastReceiver
         } else if (action.equals(TelephonyIntents.ACTION_SIM_STATE_CHANGED)) {
             // Might have different subscriptions now.
             updateMobileControllers();
-        } else if (action.equals(Intent.ACTION_LOCALE_CHANGED)) {
-            for (MobileSignalController controller : mMobileSignalControllers.values()) {
-                controller.handleBroadcast(intent);
-            }
         } else if (action.equals(TelephonyIntents.ACTION_SERVICE_STATE_CHANGED)) {
             mLastServiceState = ServiceState.newFromBundle(intent.getExtras());
             if (mMobileSignalControllers.size() == 0) {
@@ -411,13 +399,15 @@ public class NetworkControllerImpl extends BroadcastReceiver
                 // emergency state.
                 recalculateEmergency();
             }
-        } else if (action.equals(ACTION_EMBMS_STATUS)) {
-            mIsEmbmsActive = intent.getBooleanExtra("ACTIVE", false);
-            Log.d(TAG,"EMBMS_STATUS On Receive:isEmbmsactive=" + mIsEmbmsActive);
-            for (MobileSignalController controller : mMobileSignalControllers.values()) {
-                 controller.notifyListeners();
-            }
-         } else {
+        } else if (action.equals(CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED)) {
+            mConfig = Config.readConfig(mContext);
+            mReceiverHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    handleConfigurationChanged();
+                }
+            });
+        } else {
             int subId = intent.getIntExtra(PhoneConstants.SUBSCRIPTION_KEY,
                     SubscriptionManager.INVALID_SUBSCRIPTION_ID);
             if (SubscriptionManager.isValidSubscriptionId(subId)) {
@@ -450,10 +440,6 @@ public class NetworkControllerImpl extends BroadcastReceiver
             mobileSignalController.setConfiguration(mConfig);
         }
         refreshLocale();
-    }
-
-    public boolean isEmbmsActive() {
-        return mIsEmbmsActive;
     }
 
     private void updateMobileControllers() {
@@ -655,37 +641,6 @@ public class NetworkControllerImpl extends BroadcastReceiver
         mEthernetSignalController.updateConnectivity(mConnectedTransports, mValidatedTransports);
     }
 
-    private void setTextViewVisibility(TextView v) {
-        String networkName = getMobileDataNetworkName();
-        if (networkName.equals(mContext.getString(
-                com.android.internal.R.string.lockscreen_carrier_default))
-                || networkName.equals(mContext.getString(
-                com.android.internal.R.string.emergency_calls_only))) {
-            v.setVisibility(View.GONE);
-        } else {
-            v.setVisibility(View.VISIBLE);
-        }
-    }
-
-    public void addNetworkLabelView(TextView v) {
-        if (v != null) {
-            mNetWorkNameLabelView = v;
-            mNetWorkNameLabelView.setText(getMobileDataNetworkName());
-            setTextViewVisibility(mNetWorkNameLabelView);
-        }
-    }
-
-    public void removeNetworkLabelView() {
-        mNetWorkNameLabelView = null;
-    }
-
-    public void updateNetworkLabelView() {
-        if (mNetWorkNameLabelView != null) {
-            mNetWorkNameLabelView.setText(getMobileDataNetworkName());
-            setTextViewVisibility(mNetWorkNameLabelView);
-        }
-    }
-
     public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
         pw.println("NetworkController state:");
 
@@ -746,6 +701,7 @@ public class NetworkControllerImpl extends BroadcastReceiver
             mDemoMode = true;
             mDemoInetCondition = mInetCondition;
             mDemoWifiState = mWifiSignalController.getState();
+            mDemoWifiState.ssid = "DemoMode";
         } else if (mDemoMode && command.equals(COMMAND_EXIT)) {
             if (DEBUG) Log.d(TAG, "Exiting demo mode");
             mDemoMode = false;
@@ -790,6 +746,25 @@ public class NetworkControllerImpl extends BroadcastReceiver
                     mDemoWifiState.level = level.equals("null") ? -1
                             : Math.min(Integer.parseInt(level), WifiIcons.WIFI_LEVEL_COUNT - 1);
                     mDemoWifiState.connected = mDemoWifiState.level >= 0;
+                }
+                String activity = args.getString("activity");
+                if (activity != null) {
+                    switch (activity) {
+                        case "inout":
+                            mWifiSignalController.setActivity(WifiManager.DATA_ACTIVITY_INOUT);
+                            break;
+                        case "in":
+                            mWifiSignalController.setActivity(WifiManager.DATA_ACTIVITY_IN);
+                            break;
+                        case "out":
+                            mWifiSignalController.setActivity(WifiManager.DATA_ACTIVITY_OUT);
+                            break;
+                        default:
+                            mWifiSignalController.setActivity(WifiManager.DATA_ACTIVITY_NONE);
+                            break;
+                    }
+                } else {
+                    mWifiSignalController.setActivity(WifiManager.DATA_ACTIVITY_NONE);
                 }
                 mDemoWifiState.enabled = show;
                 mWifiSignalController.notifyListeners();
@@ -857,7 +832,23 @@ public class NetworkControllerImpl extends BroadcastReceiver
                 }
                 String activity = args.getString("activity");
                 if (activity != null) {
-                    controller.setActivity(Integer.parseInt(activity));
+                    controller.getState().dataConnected = true;
+                    switch (activity) {
+                        case "inout":
+                            controller.setActivity(TelephonyManager.DATA_ACTIVITY_INOUT);
+                            break;
+                        case "in":
+                            controller.setActivity(TelephonyManager.DATA_ACTIVITY_IN);
+                            break;
+                        case "out":
+                            controller.setActivity(TelephonyManager.DATA_ACTIVITY_OUT);
+                            break;
+                        default:
+                            controller.setActivity(TelephonyManager.DATA_ACTIVITY_NONE);
+                            break;
+                    }
+                } else {
+                    controller.setActivity(TelephonyManager.DATA_ACTIVITY_NONE);
                 }
                 controller.getState().enabled = show;
                 controller.notifyListeners();
@@ -874,7 +865,7 @@ public class NetworkControllerImpl extends BroadcastReceiver
 
     private SubscriptionInfo addSignalController(int id, int simSlotIndex) {
         SubscriptionInfo info = new SubscriptionInfo(id, "", simSlotIndex, "", "", 0, 0, "", 0,
-                null, 0, 0, "", 0);
+                null, 0, 0, "");
         mMobileSignalControllers.put(id, new MobileSignalController(mContext,
                 mConfig, mHasMobileDataFeature, mPhone, mCallbackHandler, this, info,
                 mSubDefaults, mReceiverHandler.getLooper()));
@@ -924,10 +915,7 @@ public class NetworkControllerImpl extends BroadcastReceiver
         boolean show4gForLte = false;
         boolean hideLtePlus = false;
         boolean hspaDataDistinguishable;
-        boolean readIconsFromXml;
-        boolean showRsrpSignalLevelforLTE;
-        boolean showLocale;
-        boolean showRat;
+        boolean alwaysShowDataRatIcon = false;
 
         static Config readConfig(Context context) {
             Config config = new Config();
@@ -939,15 +927,15 @@ public class NetworkControllerImpl extends BroadcastReceiver
             config.show4gForLte = res.getBoolean(R.bool.config_show4GForLTE);
             config.hspaDataDistinguishable =
                     res.getBoolean(R.bool.config_hspa_data_distinguishable);
-            config.readIconsFromXml = res.getBoolean(R.bool.config_read_icons_from_xml);
-            config.showRsrpSignalLevelforLTE =
-                    res.getBoolean(R.bool.config_showRsrpSignalLevelforLTE);
-            config.showLocale =
-                    res.getBoolean(com.android.internal.R.bool.config_monitor_locale_change);
-            config.showRat =
-                    res.getBoolean(com.android.internal.R.bool.config_display_rat);
-
             config.hideLtePlus = res.getBoolean(R.bool.config_hideLtePlus);
+
+            CarrierConfigManager configMgr = (CarrierConfigManager)
+                    context.getSystemService(Context.CARRIER_CONFIG_SERVICE);
+            PersistableBundle b = configMgr.getConfig();
+            if (b != null) {
+                config.alwaysShowDataRatIcon = b.getBoolean(
+                        CarrierConfigManager.KEY_ALWAYS_SHOW_DATA_RAT_ICON_BOOL);
+            }
             return config;
         }
     }

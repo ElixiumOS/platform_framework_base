@@ -213,10 +213,6 @@
   <java-symbol type="id" name="selection_start_handle" />
   <java-symbol type="id" name="selection_end_handle" />
   <java-symbol type="id" name="insertion_handle" />
-  <java-symbol type="id" name="permission_text" />
-  <java-symbol type="id" name="permission_remember_layout" />
-  <java-symbol type="id" name="permission_remember_choice_checkbox" />
-  <java-symbol type="id" name="permission_remember_choice_text" />
 
   <java-symbol type="attr" name="actionModeShareDrawable" />
   <java-symbol type="attr" name="alertDialogCenterButtons" />
@@ -1127,9 +1123,6 @@
   <java-symbol type="string" name="lockscreen_transport_pause_description" />
   <java-symbol type="string" name="config_ethernet_tcp_buffers" />
   <java-symbol type="string" name="config_wifi_tcp_buffers" />
-  <java-symbol type="string" name="permission_title" />
-  <java-symbol type="string" name="allow_button" />
-  <java-symbol type="string" name="deny_button" />
   <java-symbol type="string" name="config_demoModeLauncherComponent" />
   <java-symbol type="string" name="config_carrierDemoModePassword" />
   <java-symbol type="string" name="config_carrierDemoModeSetting" />
@@ -1406,7 +1399,6 @@
   <java-symbol type="layout" name="immersive_mode_cling" />
   <java-symbol type="layout" name="user_switching_dialog" />
   <java-symbol type="layout" name="common_tab_settings" />
-  <java-symbol type="layout" name="permission_confirmation_dialog" />
 
   <java-symbol type="anim" name="slide_in_child_bottom" />
   <java-symbol type="anim" name="slide_in_right" />
@@ -1506,7 +1498,6 @@
   <java-symbol type="attr" name="dialogCustomTitleDecorLayout" />
   <java-symbol type="attr" name="dialogTitleDecorLayout" />
   <java-symbol type="attr" name="dialogTitleIconsDecorLayout" />
-  <java-symbol type="array" name="app_ops_labels" />
   <java-symbol type="bool" name="config_allowAllRotations" />
   <java-symbol type="bool" name="config_annoy_dianne" />
   <java-symbol type="bool" name="config_carDockEnablesAccelerometer" />
@@ -2704,25 +2695,6 @@
   <java-symbol type="layout" name="unsupported_display_size_dialog_content" />
   <java-symbol type="string" name="unsupported_display_size_message" />
 
-  <!-- SIM contact batch operation -->
-  <java-symbol type="bool" name="config_sim_phonebook_batch_operation" />
-  <!-- config 2G/3G/4G RAT strings for carriers -->
-  <java-symbol type="string" name="config_rat_unknown" />
-  <java-symbol type="string" name="config_rat_2g" />
-  <java-symbol type="string" name="config_rat_3g" />
-  <java-symbol type="string" name="config_rat_4g" />
-
-  <!-- monitor locale change -->
-  <java-symbol type="bool" name="config_monitor_locale_change" />
-
-  <!-- display for radio tech -->
-  <java-symbol type="bool" name="config_display_rat" />
-
-  <java-symbol type="array" name="origin_carrier_names" />
-  <java-symbol type="array" name="locale_carrier_names" />
-  <java-symbol type="string" name="operator_config_url" />
-  <java-symbol type="string" name="operator_ping_url" />
-  <java-symbol type="bool" name="config_zero_balance_operator"/>
   <!-- Symbols/Overlays for carrier hotspot -->
   <java-symbol type="bool" name="config_regional_hotspot_show_maximum_connection_enable" />
 
@@ -2832,15 +2804,5 @@
   <java-symbol type="bool" name="use_lock_pattern_drawable" />
   <java-symbol type="drawable" name="lockscreen_notselected" />
   <java-symbol type="drawable" name="lockscreen_selected" />
-
-  <!-- Gesture Sensor -->
-  <java-symbol type="bool" name="config_enableGestureService" />
-
-  <!-- Device keyhandlers -->
-  <java-symbol type="array" name="config_deviceKeyHandlerLibs" />
-  <java-symbol type="array" name="config_deviceKeyHandlerClasses" />
-
-  <!-- Gesture Sensor -->
-  <java-symbol type="bool" name="config_enableGestureService" />
 
 </resources>

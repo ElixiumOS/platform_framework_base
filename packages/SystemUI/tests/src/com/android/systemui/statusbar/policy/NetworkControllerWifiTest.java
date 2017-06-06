@@ -93,10 +93,9 @@ public class NetworkControllerWifiTest extends NetworkControllerBaseTest {
         setGsmRoaming(true);
         // Still be on wifi though.
         setConnectivity(NetworkCapabilities.TRANSPORT_WIFI, true, true);
-        setConnectivity(NetworkCapabilities.TRANSPORT_CELLULAR, false, false);
         verifyLastMobileDataIndicators(true,
                 TelephonyIcons.TELEPHONY_SIGNAL_STRENGTH_ROAMING[1][DEFAULT_LEVEL],
-                0, true);
+                TelephonyIcons.ROAMING_ICON);
     }
 
     protected void setWifiActivity(int activity) {
