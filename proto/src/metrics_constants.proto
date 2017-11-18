@@ -4574,5 +4574,8 @@ message MetricsEvent {
 
     // ABC custom constants
     ABC = 1500;
+
+    // DNA costants
+    DNA = 1501;
   }
 }
